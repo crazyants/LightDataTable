@@ -9,7 +9,9 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.Serialization;
 using System.Threading.Tasks;
+using FastDeepCloner;
 using Generic.LightDataTable.Attributes;
 using Generic.LightDataTable.Helper;
 
@@ -31,6 +33,15 @@ namespace Generic.LightDataTable
         public static string ToJson(this object data)
         {
             return JsonConvert.SerializeObject(data);
+        }
+
+        public static List<T> Clone<T>(this List<T> items) where T : class, IDbEntity
+        {
+            return DeepCloner.Clone(items, new FastDeepClonerSettings()
+            {
+                FieldType = FieldType.PropertyInfo,
+                OnCreateInstance = new Extensions.CreateInstance(FormatterServices.GetUninitializedObject)
+            });
         }
 
         public static List<T> ClearAllIdsHierarki<T>(this List<T> items, bool clearIndependedData = false) where T : class, IDbEntity
@@ -99,7 +110,7 @@ namespace Generic.LightDataTable
         /// <param name="repository"></param>
         /// <param name="o"></param>
         /// <returns></returns>
-        internal static long Save<T>(this ICustomRepository repository, T o) where T : IDbEntity
+        public static long Save<T>(this ICustomRepository repository, T o) where T : IDbEntity
         {
             if (o == null) return -1;
             o.State = ItemState.Added;
