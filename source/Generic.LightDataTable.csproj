@@ -35,6 +35,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
+    <DocumentationFile>bin\Release\Generic.LightDataTable.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="FastDeepCloner, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
