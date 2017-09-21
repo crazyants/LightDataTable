@@ -1,5 +1,5 @@
 # Introduction to LightDataTable
-## nuget
+## Nuget
 https://www.nuget.org/packages/Generic.LightDataTable/
 ## What is LightDataTable
 LightDataTable is an object-relation mappar that enable .NET developers to work with relations data using objects.
