@@ -141,7 +141,7 @@ It depends on primarykey, Id>0 to update and Id<=0 to insert.
                 (x.Role.Name.EndsWith("SuperAdmin") &&
                  x.UserName.Contains("alen")) ||
                  x.Address.Any(a=> a.AddressName.StartsWith("st"))
-                ).LoadChildren().Execute(); 
+                ).LoadChildren();
          foreach (User user in users.Execute())
          {
              user.UserName = "test 1";
