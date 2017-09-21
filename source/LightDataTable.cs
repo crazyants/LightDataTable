@@ -15,7 +15,7 @@ namespace Generic.LightDataTable
     {
         internal PrimaryKeyIndex primaryKeyIndex = new PrimaryKeyIndex();
         private string _tablePrimaryKey;
-        private int _pageNumber = 1;
+        private int _pageNumber = 1; 
         private int _setsPerPage = 20;
         private LightDataRowCollection _rows = new LightDataRowCollection();
         public string TableName { get; set; }
