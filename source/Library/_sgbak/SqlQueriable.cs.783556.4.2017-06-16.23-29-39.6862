@@ -1,0 +1,118 @@
+﻿using SourceTech.LightDataTable.InterFace;
+using SourceTech.LightDataTable.Helper;
+using System.Collections.Generic;
+using System;
+using System.Linq;
+using System.Linq.Expressions;
+using SourceTech.LightDataTable.Interface;
+
+namespace SourceTech.LightDataTable.Library
+{
+    public class SqlQueriable<T> : List<T>, ISqlQueriable<T> where T : class, new()
+    {
+        private readonly ICustomRepository _repository;
+        private List<string> _ignoreActions = new List<string>();
+
+        public SqlQueriable(List<T> items, ICustomRepository repository)
+        {
+            _repository = repository;
+            if (items == null)
+                return;
+            items.RemoveAll(x => x == null);
+            base.AddRange(items);
+        }
+
+        public new ISqlQueriable<T> Add(T item)
+        {
+            if (item != null)
+                base.Add(item);
+            return this;
+        }
+
+        public ISqlQueriable<T> AddRange(List<T> items)
+        {
+            if (items == null)
+                return this;
+            items.RemoveAll(x => x == null);
+            base.AddRange(items);
+            return this;
+        }
+
+        public ISqlQueriable<T> IgnoreChildren(params Expression<Func<T, object>>[] ignoreActions)
+        {
+            foreach (var action in ignoreActions)
+            {
+                var member = action.Body is UnaryExpression ?
+                    ((MemberExpression)((UnaryExpression)action.Body).Operand) :
+                    (action.Body is MethodCallExpression ? ((MemberExpression)((MethodCallExpression)action.Body).Object) :
+                        (MemberExpression)action.Body);
+                _ignoreActions.Add(member?.Member.Name);
+
+            }
+            return this;
+        }
+
+        public ISqlQueriable<T> LoadChildren(bool onlyFirstLevel = false)
+        {
+            foreach (var item in this)
+                _repository.LoadChildren(item, onlyFirstLevel, _ignoreActions);
+            _ignoreActions = new List<string>();
+            return this;
+        }
+
+        public ISqlQueriable<T> LoadChildren(params Expression<Func<T, object>>[] actions)
+        {
+            foreach (var item in this)
+                _repository.LoadChildren(item, false, _ignoreActions, actions);
+            _ignoreActions = new List<string>();
+            return this;
+        }
+
+        public new int RemoveAll(Predicate<T> match)
+        {
+            return base.RemoveAll(match);
+        }
+
+        public new ISqlQueriable<T> FindAll(Predicate<T> match)
+        {
+            return new SqlQueriable<T>(base.FindAll(match), _repository);
+        }
+
+        public List<TSource> ToObject<TSource>()
+        {
+            return new LightDataTable(this).Rows.Select(x => x.ToObject<TSource>()).ToList();
+        }
+
+        public T FirstOrDefault(Func<T, bool> predicate = null)
+        {
+            return predicate != null ? ToList().FirstOrDefault(predicate) : ToList().FirstOrDefault();
+        }
+
+        public List<T> ToList()
+        {
+            return this as List<T>;
+        }
+
+        public ISqlQueriable<T> Save()
+        {
+            foreach (var item in this)
+                _repository.Save(item as IDbEntity);
+            return this;
+        }
+
+        public ICustomRepository GetRepository()
+        {
+            return _repository;
+        }
+
+        public ILightDataTable ToLightDataTable()
+        {
+            return new LightDataTable(this);
+        }
+
+        public void Dispose()
+        {
+            _repository?.Dispose();
+        }
+    }
+}

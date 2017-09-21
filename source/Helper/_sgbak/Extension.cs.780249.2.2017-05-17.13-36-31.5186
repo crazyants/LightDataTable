@@ -1,0 +1,116 @@
+﻿using SourceTech.Data.MicrosoftSql;
+using SourceTech.LightDataTable.Interface;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+
+namespace SourceTech.LightDataTable.Helper
+{
+    public static class Extension
+    {
+        private static Type TypeByTypeAndDbIsNull(Type propertyType, bool allowDBNull)
+        {
+
+            if (propertyType == typeof(int))
+                if (allowDBNull)
+                    return typeof(int?);
+                else return typeof(int);
+
+            if (propertyType == typeof(decimal))
+                if (allowDBNull)
+                    return typeof(decimal?);
+                else return typeof(decimal);
+
+            if (propertyType == typeof(double))
+                if (allowDBNull)
+                    return typeof(double?);
+                else return typeof(double);
+
+            if (propertyType == typeof(float))
+                if (allowDBNull)
+                    return typeof(float?);
+                else return typeof(float);
+
+            if (propertyType == typeof(DateTime))
+                if (allowDBNull)
+                    return typeof(DateTime?);
+                else return typeof(DateTime);
+
+            if (propertyType == typeof(Int64))
+                if (allowDBNull)
+                    return typeof(Int64?);
+                else return typeof(Int64);
+
+            if (propertyType == typeof(TimeSpan))
+                if (allowDBNull)
+                    return typeof(TimeSpan?);
+                else return typeof(TimeSpan);
+
+            if (propertyType == typeof(bool))
+                if (allowDBNull)
+                    return typeof(bool?);
+                else return typeof(bool);
+
+            if (propertyType == typeof(byte[]))
+                return typeof(byte[]);
+
+
+            return typeof(string);
+
+        }
+
+        private static ILightDataTable ReadData(this ILightDataTable data, SqlDataReader reader)
+        {
+
+            var i = 0;
+            if (reader.FieldCount <= 0)
+                return data;
+
+            foreach (DataRow item in reader.GetSchemaTable().Rows)
+            {
+                var isKey = Converter<bool>.Parse(item["IsKey"]);
+                var columnName = item["ColumnName"].ToString();
+                var dataType = TypeByTypeAndDbIsNull(item["DataType"] as Type, Converter<bool>.Parse(item["AllowDBNull"]));
+                if (!data.Columns.ContainsKey(columnName))
+                    data.AddColumn(columnName, dataType);
+                else data.AddColumn(columnName + i, dataType);
+                i++;
+            }
+
+            while (reader.Read())
+            {
+                var row = data.NewRow();
+                reader.GetValues(row.ItemArray);
+                data.AddRow(row);
+            }
+            return data;
+        }
+
+        public static List<ILightDataTable> ExecuteLightDataTableList(this MSSqlHelper mSSqlHelper, SqlCommand cmd)
+        {
+            var dataList = new List<ILightDataTable>();
+            mSSqlHelper.ExecuteDataReader(cmd, new SqlDataReaderFill((SqlDataReader reader) =>
+            {
+                var data = new LightDataTable();
+                dataList.Add(new LightDataTable().ReadData(reader));
+
+                while (reader.NextResult())
+                    dataList.Add(new LightDataTable().ReadData(reader));
+            }));
+
+            return dataList;
+        }
+
+        public static ILightDataTable ExecuteLightDataTable(this MSSqlHelper mSSqlHelper, SqlCommand cmd, string primaryKey = null)
+        {
+            ILightDataTable data = new LightDataTable() { TablePrimaryKey = primaryKey };
+            mSSqlHelper.ExecuteDataReader(cmd, new SqlDataReaderFill((SqlDataReader reader) =>
+            {
+                data.ReadData(reader);
+            }));
+            return data;
+        }
+
+    }
+}

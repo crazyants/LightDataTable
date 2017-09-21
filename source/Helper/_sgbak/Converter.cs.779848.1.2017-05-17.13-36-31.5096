@@ -1,0 +1,89 @@
+﻿using System;
+using System.Runtime.Serialization;
+
+namespace SourceTech.LightDataTable.Helper
+{
+    public static class Converter<T>
+    {
+        private static string CleanDecimal(object value)
+        {
+            return value.ToString().Replace(".", ",");
+        }
+
+        public static string String(object value, object defaultValue = null)
+        {
+            var v = Converter<string>.Parse(value);
+            if (string.IsNullOrEmpty(v) && defaultValue != null)
+                v = defaultValue.ToString();
+            return v;
+        }
+
+        public static T Parse(object value, object defaultValue = null)
+        {
+            var type = typeof(T);
+            if (defaultValue == null)
+                defaultValue = typeof(T) == typeof(string) ? "" : FormatterServices.GetUninitializedObject(typeof(T));
+            else if (defaultValue.GetType() != typeof(T))
+                defaultValue = Convert.ChangeType(defaultValue, typeof(T));
+
+
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                defaultValue = null;
+                type = Nullable.GetUnderlyingType(type);
+            }
+
+            if (value == null || value == DBNull.Value)
+                return (T)defaultValue;
+
+            decimal outValue;
+            double dOutValue;
+            bool boolOutValue;
+            DateTime date;
+
+            var valueType = value.GetType();
+            if (type.IsEnum)
+            {
+                if (valueType == typeof(int))
+                {
+                    if (Enums.IsDefined(type, value))
+                        return (T)(object)value;
+                }
+                else if (Enums.IsDefined(type, value))
+                    return (T)Enums.Parse(type, value.ToString(), true);
+            }
+
+            if (type == typeof(int) || type == typeof(int?))
+                if (decimal.TryParse(CleanDecimal(value), out outValue))
+                    return (T)(object)Convert.ToInt32(CleanDecimal(value));
+
+            if (type == typeof(long) || type == typeof(long?))
+                if (double.TryParse(CleanDecimal(value), out dOutValue))
+                    return (T)(object)Convert.ToInt64(CleanDecimal(value));
+
+            if (type == typeof(decimal) || type == typeof(decimal?))
+                if (decimal.TryParse(CleanDecimal(value), out outValue))
+                    return (T)(object)Convert.ToDecimal(CleanDecimal(value));
+
+
+            if (type == typeof(bool) || type == typeof(bool?))
+                if (bool.TryParse(CleanDecimal(value), out boolOutValue))
+                    return (T)(object)Convert.ToBoolean(value);
+
+            if (type == typeof(DateTime) || type == typeof(DateTime?))
+                if (DateTime.TryParse(CleanDecimal(value), out date))
+                {
+                    if (date.Year <= 1)
+                        return (T)(object)DateTime.Now;
+                    else
+                        return (T)(object)date;
+
+                }
+
+            if (type == typeof(string))
+                return (T)(object)value.ToString();
+
+            return (T)defaultValue;
+        }
+    }
+}

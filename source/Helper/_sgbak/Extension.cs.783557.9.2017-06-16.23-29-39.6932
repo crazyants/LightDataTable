@@ -1,0 +1,163 @@
+﻿using SourceTech.LightDataTable.Interface;
+using SourceTech.LightDataTable.InterFace;
+using SourceTech.LightDataTable.Library;
+using SourceTech.LightDataTable.SqlQuerys;
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Linq;
+using System.Linq.Expressions;
+
+namespace SourceTech.LightDataTable.Helper
+{
+    public static class Extension
+    {
+        /// <summary>
+        /// object must containe PrimaryKey
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="repository"></param>
+        /// <param name="o"></param>
+        /// <returns></returns>
+        public static long Save<T>(this ICustomRepository repository, T o) where T : InterFace.IDbEntity
+        {
+            if (o != null)
+                return DbSchema.SaveObject(repository, o, false, true);
+            return -1;
+        }
+
+        public static void DeleteAbstract<T>(this ICustomRepository repository, T o) where T : class, new()
+        {
+            if (o != null)
+                DbSchema.DeleteAbstract(repository, o);
+        }
+
+        public static ISqlQueriable<T> GetAbstractById<T>(this ICustomRepository repository, long? objectId) where T : class, new()
+        {
+            return !objectId.HasValue ? null : new SqlQueriable<T>(new List<T>() { (T)DbSchema.GetSqlById(objectId.Value, repository, typeof(T)) }, repository);
+        }
+
+        public static ISqlQueriable<T> GetAbstractAll<T>(this ICustomRepository repository) where T : class, new()
+        {
+            return new SqlQueriable<T>(DbSchema.GetSqlAll(repository, typeof(T))?.Cast<T>().ToList(), repository);
+        }
+
+        public static void LoadChildren<T>(this ICustomRepository repository, T item, bool onlyFirstLevel = false, List<string> ignoreList = null) where T : class
+        {
+            DbSchema.LoadChildren<T>(item, repository, onlyFirstLevel,null, ignoreList != null && ignoreList.Any() ? ignoreList : null);
+        }
+
+        public static void LoadChildren<T, TP>(this ICustomRepository repository, T item, bool onlyFirstLevel = false, List<string> ignoreList = null, params Expression<Func<T, TP>>[] actions) where T : class
+        {
+            var parames = new List<string>();
+            if (actions != null)
+                foreach (var action in actions)
+                {
+                    var member = action.Body is UnaryExpression ?
+                        ((MemberExpression)((UnaryExpression)action.Body).Operand) :
+                        (action.Body is MethodCallExpression ? ((MemberExpression)((MethodCallExpression)action.Body).Object) :
+                        (MemberExpression)action.Body);
+                    parames.Add(member.Member.Name);
+
+                }
+            DbSchema.LoadChildren<T>(item, repository, onlyFirstLevel, actions != null ? parames : null, ignoreList != null && ignoreList.Any() ? ignoreList : null);
+        }
+
+        public static ISqlQueriable<T> GetObjectByFunc<T>(this ICustomRepository repository, params object[] values) where T : class, new()
+        {
+            return new SqlQueriable<T>(DbSchema.GetObjectByFunc<T>(repository, null, values), repository);
+        }
+
+        public static ILightDataTable GetObjectByFuncTable<T>(this ICustomRepository repository, params object[] values) where T : class, new()
+        {
+            return new LightDataTable(new LightDataRowCollection(new SqlQueriable<LightDataTableRow>(DbSchema.GetObjectByFunc<LightDataTableRow>(repository, typeof(T), values), repository)));
+        }
+
+        public static ISqlQueriable<T> SelectAbsence<T>(this ICustomRepository repository, QueryItem quary = null) where T : class, new()
+        {
+            return new SqlQueriable<T>(DbSchema.Select<T>(repository, quary), repository);
+        }
+
+        public static ISqlQueriable<T> GetObjectByView<T>(this ICustomRepository repository, params object[] values) where T : class, new()
+        {
+            return new SqlQueriable<T>(DbSchema.GetObjectByView<T>(repository, null, values), repository);
+        }
+
+        public static ILightDataTable GetObjectByViewTable<T>(this ICustomRepository repository, params object[] values) where T : class, new()
+        {
+            return new LightDataTable(new LightDataRowCollection(new SqlQueriable<LightDataTableRow>(DbSchema.GetObjectByView<LightDataTableRow>(repository, typeof(T), values), repository)));
+        }
+
+
+
+        private static Type TypeByTypeAndDbIsNull(Type propertyType, bool allowDbNull)
+        {
+            if (propertyType == typeof(int))
+                return allowDbNull ? typeof(int?) : typeof(int);
+
+            if (propertyType == typeof(decimal))
+                return allowDbNull ? typeof(decimal?) : typeof(decimal);
+
+            if (propertyType == typeof(double))
+                return allowDbNull ? typeof(double?) : typeof(double);
+
+            if (propertyType == typeof(float))
+                return allowDbNull ? typeof(float?) : typeof(float);
+
+            if (propertyType == typeof(DateTime))
+                return allowDbNull ? typeof(DateTime?) : typeof(DateTime);
+
+            if (propertyType == typeof(long))
+                return allowDbNull ? typeof(long?) : typeof(long);
+
+            if (propertyType == typeof(TimeSpan))
+                return allowDbNull ? typeof(TimeSpan?) : typeof(TimeSpan);
+
+            if (propertyType == typeof(bool))
+                return allowDbNull ? typeof(bool?) : typeof(bool);
+
+            return propertyType == typeof(byte[]) ? typeof(byte[]) : typeof(string);
+        }
+
+        private static ILightDataTable ReadData(this ILightDataTable data, SqlDataReader reader)
+        {
+            var i = 0;
+            if (reader.FieldCount <= 0)
+                return data;
+
+            foreach (DataRow item in reader.GetSchemaTable().Rows)
+            {
+                var isKey = Converter<bool>.Parse(item["IsKey"]);
+                var columnName = item["ColumnName"].ToString();
+                var dataType = TypeByTypeAndDbIsNull(item["DataType"] as Type, Converter<bool>.Parse(item["AllowDBNull"]));
+                if (!data.Columns.ContainsKey(columnName))
+                    data.AddColumn(columnName, dataType);
+                else data.AddColumn(columnName + i, dataType);
+                i++;
+            }
+
+            while (reader.Read())
+            {
+                var row = data.NewRow();
+                reader.GetValues(row.ItemArray);
+                data.AddRow(row);
+            }
+            return data;
+        }
+
+        public static List<ILightDataTable> ExecuteLightDataTableList(this SqlDataReader reader)
+        {
+            var dataList = new List<ILightDataTable> { new LightDataTable().ReadData(reader) };
+            while (reader.NextResult())
+                dataList.Add(new LightDataTable().ReadData(reader));
+            return dataList;
+        }
+
+        public static ILightDataTable ExecuteLightDataTable(this SqlDataReader reader, string primaryKey = null)
+        {
+            return new LightDataTable() { TablePrimaryKey = primaryKey }.ReadData(reader);
+        }
+
+    }
+}
