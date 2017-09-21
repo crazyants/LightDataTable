@@ -60,7 +60,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Abstract\Repository.cs" />
     <Compile Include="Attributes\ExcludeFromAbstract.cs" />
     <Compile Include="Attributes\ForeignKey.cs" />
     <Compile Include="Attributes\IndependentData.cs" />
