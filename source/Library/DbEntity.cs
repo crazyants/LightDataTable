@@ -11,6 +11,10 @@ using System.Runtime.Serialization;
 
 namespace Generic.LightDataTable.Library
 {
+    /// <inheritdoc />
+    /// <summary>
+    /// all modules have to inhert this class
+    /// </summary>
     [AddINotifyPropertyChangedInterface]
     public class DbEntity : IDbEntity
     {
@@ -23,14 +27,17 @@ namespace Generic.LightDataTable.Library
         [PrimaryKey]
         public virtual long Id { get; set; }
 
+        /// <summary>
+        /// This property should only be used from Internal or be user in IDbRuleTrigger Interface
+        /// </summary>
         [ExcludeFromAbstract]
         [DoNotNotify]
         [JsonIgnore]
-        // This property should only be used from Internal or be user in IDbRuleTrigger Interface
         public virtual ItemState State { get; set; }
 
         public DbEntity() => ClearPropertChanges();
 
+        /// <inheritdoc />
         /// <summary>
         /// Clear all changes
         /// </summary>
@@ -47,13 +54,22 @@ namespace Generic.LightDataTable.Library
             PropertyChanges.Add(e.PropertyName, e.PropertyName);
         }
 
-        // This Method is added in case we want JsonConverter to serialize only new data, 
-        // be sure to Clear PropertyChanges before beginning to change the data
+
+        /// <summary>
+        /// This Method is added in case we want JsonConverter to serialize only new data, 
+        /// be sure to Clear PropertyChanges before beginning to change the data
+        /// </summary>
+        /// <returns></returns>
         public string GetJsonForPropertyChangesOnly()
         {
             return MethodHelper.CreateNewValuesFromObject(this);
         }
-
+        /// <inheritdoc />
+        /// <summary>
+        /// Clone the object
+        /// </summary>
+        /// <param name="fieldType"></param>
+        /// <returns></returns>
         public IDbEntity Clone(FieldType fieldType = FieldType.PropertyInfo)
         {
             return DeepCloner.Clone(this, new FastDeepClonerSettings()
@@ -63,6 +79,7 @@ namespace Generic.LightDataTable.Library
             });
         }
 
+        /// <inheritdoc />
         /// <summary>
         /// Merge only the Changes, that exist in PropertyChanges
         /// </summary>

@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 
 namespace Generic.LightDataTable.InterFace
 {
+    /// <summary>
+    /// LightDataTable Provider
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     public interface ISqlQueriable<T> where T : class, IDbEntity
     {
         /// <summary>

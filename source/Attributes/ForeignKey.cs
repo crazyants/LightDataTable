@@ -2,6 +2,9 @@
 
 namespace Generic.LightDataTable.Attributes
 {
+    /// <summary>
+    /// 
+    /// </summary>
     [AttributeUsage(AttributeTargets.Property)]
     public sealed class ForeignKey : Attribute
     {
