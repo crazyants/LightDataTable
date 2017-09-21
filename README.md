@@ -1,4 +1,6 @@
 # Introduction to LightDataTable
+## Nuget
+https://www.nuget.org/packages/Generic.LightDataTable/
 ## What is LightDataTable
 LightDataTable is an object-relation mappar that enable .NET developers to work with relations data using objects.
 LightDataTable is an alternative to entityframwork. is more flexible and much faster than entity framework.
@@ -34,6 +36,7 @@ let's start building our models, lets build a simple models User
 ```
     // Table attribute indicate that the object Name differ from the database table Name
     [Table("Users")]
+    [Rule(typeof(UserRule))]
     public class User : DbEntity
     {
         public string UserName { get; set; }
@@ -67,6 +70,35 @@ let's start building our models, lets build a simple models User
         // if its included in the quarry
         [ForeignKey(typeof(User))]
         public long User_Id { get; set; }
+    }
+    
+    // LightDataTable has its own way to validate the data.
+    // lets create an object and call it UserRule
+    // above the User class we have specified this class to be executed before save and after.
+    // by adding [Rule(typeof(UserRule))] to the user class
+    public class UserRule : IDbRuleTrigger
+    {
+        public void BeforeSave(ICustomRepository repository, IDbEntity itemDbEntity)
+        {
+            var user = itemDbEntity as User;
+            if (string.IsNullOrEmpty(user.Password) || string.IsNullOrEmpty(user.UserName))
+            {
+                // this will do a transaction rollback and delete all changes that have happened to the database
+                throw new Exception("Password or UserName can not be empty");
+
+            }
+        }
+
+        public void AfterSave(ICustomRepository repository, IDbEntity itemDbEntity, long objectId)
+        {
+            var user = itemDbEntity as User;
+            user.ClearPropertChanges();// clear all changes.
+            // lets do some changes here, when the item have updated..
+            user.Password = MethodHelper.EncodeStringToBase64(user.Password);
+            // and now we want to save this change to the database 
+            user.State = ItemState.Changed;
+            // the lightdatatable will now know that it need to update the database agen.
+        }
     }
 
 ```
