@@ -175,24 +175,24 @@ will do a very painful quarry and se how it gets parsed.
 ```
             using (var rep = new Repository())
             {
-                var users = rep.Get<User>().Where(x =>
+               ISqlQueriable<User> users = rep.Get<User>().Where(x =>
                (x.Role.Name.EndsWith("SuperAdmin") &&
                 x.UserName.Contains("alen")) ||
                 x.Address.Any(a => (a.AddressName.StartsWith("st") || a.AddressName.Contains("mt")) && a.Id > 0)
-                ).Execute();
+                );
                 
+                List<User> userList = users.Execute();
+                var sql = users.ParsedLinqToSql;
             }
             // And here is the generated Sql Quarry
-            SELECT distinct Users.* FROM Users 
-            left join [Roles] vlCF on vlCF.[Id] = Users.[Role_Id]
-            left join [Address] gFWw on Users.[Id] = gFWw.[User_Id]
-            WHERE (([vlCF].[Name] like '%SuperAdmin' AND [Users].[UserName] like '%alen%')
-            OR EXISTS (SELECT 1 FROM [Address] 
-            WHERE (([Address].[AddressName] like 'st%' OR [Address].[AddressName] like '%mt%')
-            AND ([Address].[Id] > 0 AND gFWw.User_Id = Users.Id))))
-            // Se also When we did x.Address.Any the parser already know what 
-            // to look for by adding gFWw.User_Id = Users.Id
-
+             SELECT distinct Users.* FROM Users 
+             left join [Roles] CEjB on CEjB.[Id] = Users.[Role_Id]
+             WHERE (([CEjB].[Name] like '%SuperAdmin' AND [Users].[UserName] like '%alen%') OR  EXISTS (SELECT 1 FROM [Address] 
+             INNER JOIN [Address] MJRhcYK on Users.[Id] = MJRhcYK.[User_Id]
+             WHERE (([Address].[AddressName] like 'st%' OR [Address].[AddressName] like '%mt%') AND ([Address].[Id] > 0))))
+             ORDER BY Id
+             OFFSET 0
+             ROWS FETCH NEXT 2147483647 ROWS ONLY;
 ```
 
 ## Issues
