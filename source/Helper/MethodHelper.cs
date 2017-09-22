@@ -151,7 +151,7 @@ namespace Generic.LightDataTable
             return CachedPrimaryKeys[item.GetType()];
         }
 
-        public static IFastDeepClonerProperty GetPrimaryKey(Type type)
+        public static IFastDeepClonerProperty GetPrimaryKey(this Type type)
         {
             if (CachedPrimaryKeys.ContainsKey(type))
                 return CachedPrimaryKeys[type];

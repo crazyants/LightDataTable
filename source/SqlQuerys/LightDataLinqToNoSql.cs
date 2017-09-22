@@ -14,14 +14,13 @@ namespace Generic.LightDataTable.SqlQuerys
     {
         private StringBuilder sb;
         private ExpressionType? _overridedNodeType;
-        private string _parameterValue;
         private readonly List<string> _columns;
 
         public Dictionary<string, Tuple<string, string>> JoinClauses { get; private set; } = new Dictionary<string, Tuple<string, string>>();
 
-        public int? Skip { get; set; }
+        public int Skip { get; set; }
 
-        public int? Take { get; set; }
+        public int Take { get; set; } = Int32.MaxValue;
 
         public string OrderBy { get; set; }
 
@@ -35,6 +34,7 @@ namespace Generic.LightDataTable.SqlQuerys
             {
                 (typeof(T).GetCustomAttribute<Table>()?.Name ?? typeof(T).Name) + ".*"
             };
+            OrderBy = typeof(T).GetPrimaryKey().GetPropertyName();
         }
 
         public string Quary
@@ -47,12 +47,10 @@ namespace Generic.LightDataTable.SqlQuerys
                        System.Environment.NewLine + (WhereClause.Any() ? "WHERE " : string.Empty) + string.Join(" AND ", WhereClause.ToArray());
                 quary = quary.TrimEnd(" AND ").TrimEnd(" OR ");
                 if (!string.IsNullOrEmpty(OrderBy))
-                    quary += System.Environment.NewLine + "order by " + OrderBy;
+                    quary += System.Environment.NewLine + "ORDER BY " + OrderBy;
+                else quary += System.Environment.NewLine + "ORDER BY 1 ASC";
 
-                if (!Take.HasValue) return quary;
-                if (string.IsNullOrEmpty(OrderBy))
-                    quary += System.Environment.NewLine + "order by 1 ASC";
-                quary += System.Environment.NewLine + "OFFSET " + (Skip ?? 0) + System.Environment.NewLine + "ROWS FETCH NEXT " + Take.Value + " ROWS ONLY;";
+                quary += System.Environment.NewLine + "OFFSET " + Skip + System.Environment.NewLine + "ROWS FETCH NEXT " + Take + " ROWS ONLY;";
 
                 return quary;
             }
@@ -73,6 +71,8 @@ namespace Generic.LightDataTable.SqlQuerys
         {
             this.sb = new StringBuilder();
             this.Visit(expression);
+            if (sb.ToString().Contains("{IsNullOrEmpty}"))
+                sb = new StringBuilder(sb.ToString().Replace("{IsNullOrEmpty}", " = 1 "));
             WhereClause.Add(this.sb.ToString());
         }
 
@@ -85,6 +85,14 @@ namespace Generic.LightDataTable.SqlQuerys
             return e;
         }
 
+        public override Expression Visit(Expression node)
+        {
+            var m = base.Visit(node);
+
+            _overridedNodeType = null;
+            return m;
+        }
+
         protected override Expression VisitMethodCall(MethodCallExpression m)
         {
             if (m.Method.DeclaringType == typeof(Queryable) || (m.Method.Name == "Any"))
@@ -92,15 +100,27 @@ namespace Generic.LightDataTable.SqlQuerys
                 var classtype = m.Arguments.First().Type.GenericTypeArguments.First();
                 var type = typeof(LightDataLinqToNoSql<>).MakeGenericType(classtype);
                 var cl = Activator.CreateInstance(type) as dynamic;
+                cl._generatedKeys = _generatedKeys;
                 cl.Translate(m.Arguments.Last() as Expression);
-                cl._parameterValue = cl.QuaryExist;
                 cl._overridedNodeType = ExpressionType.MemberAccess;
                 cl.Visit(m.Arguments[0]);
-                sb.Append(cl._parameterValue);
+                sb.Append(cl.QuaryExist);
                 cl._overridedNodeType = null;
-                cl._parameterValue = null;
-                foreach (var join in cl.JoinClauses)
-                    JoinClauses.Add(join.Key, join.Value);
+                _generatedKeys = cl._generatedKeys;
+                //foreach (var join in cl.JoinClauses)
+                //    JoinClauses.Add(join.Key, join.Value);
+                return m;
+            }
+            else if (m.Method.Name == "IsNullOrEmpty")
+            {
+                //IIF(UserName IS NULL, 1, IIF(UserName = '', 1, 0)))
+
+                sb.Append("(IIF(");
+                this.Visit(m.Arguments[0]);
+                sb.Append(" IS NULL ,1,IIF(");
+                this.Visit(m.Arguments[0]);
+                sb.Append(" = '', 1,0))");
+                sb.Append(") {IsNullOrEmpty}");
                 return m;
             }
             else if (m.Method.Name == "Contains")
@@ -203,8 +223,17 @@ namespace Generic.LightDataTable.SqlQuerys
             switch (u.NodeType)
             {
                 case ExpressionType.Not:
-                    sb.Append(" NOT ");
+                    if (!u.ToString().Contains("IsNullOrEmpty"))
+                        sb.Append(" NOT ");
                     this.Visit(u.Operand);
+                    if (u.ToString().Contains("IsNullOrEmpty"))
+                    {
+                        if (sb.ToString().Length >= "{IsNullOrEmpty}".Length && sb.ToString().Substring(sb.ToString().Length - "{IsNullOrEmpty}".Length) == "{IsNullOrEmpty}" && sb.ToString().Contains("{IsNullOrEmpty}"))
+                            sb = new StringBuilder(sb.ToString().Substring(0, sb.ToString().Length - "{IsNullOrEmpty}".Length));
+                        sb.Append(" = 0 ");
+
+
+                    }
                     break;
                 case ExpressionType.Convert:
                     this.Visit(u.Operand);
@@ -225,6 +254,14 @@ namespace Generic.LightDataTable.SqlQuerys
         {
             sb.Append("(");
             this.Visit(b.Left);
+            if (sb.ToString().Length >= "{IsNullOrEmpty}".Length && sb.ToString().Substring(sb.ToString().Length - "{IsNullOrEmpty}".Length) == "{IsNullOrEmpty}" &&
+                sb.ToString().Contains("{IsNullOrEmpty}") && !(b.NodeType == ExpressionType.Or ||
+                b.NodeType == ExpressionType.OrElse ||
+                b.NodeType == ExpressionType.And ||
+                b.NodeType == ExpressionType.AndAlso ||
+                b.NodeType == ExpressionType.And
+                ))
+                sb = new StringBuilder(sb.ToString().Substring(0, sb.ToString().Length - "{IsNullOrEmpty}".Length));
 
             switch (b.NodeType)
             {
@@ -339,7 +376,7 @@ namespace Generic.LightDataTable.SqlQuerys
             return c;
         }
 
-        private readonly Dictionary<string, string> _generatedKeys = new Dictionary<string, string>();
+        private Dictionary<string, string> _generatedKeys = new Dictionary<string, string>();
 
         private const string Valid = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
         private string RandomKey()
@@ -364,7 +401,7 @@ namespace Generic.LightDataTable.SqlQuerys
                 _overridedNodeType = null;
                 var cl = m.Expression.Type;
                 var prop = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.Name == m.Member.Name);
-                var name = MethodHelper.GetPropertyName(prop);
+                var name = prop.GetPropertyName();
                 var table = cl.GetCustomAttribute<Table>()?.Name ?? cl.Name;
                 var columnName = string.Format("[{0}].[{1}]", table, name);
                 if (columnOnly)
@@ -378,10 +415,10 @@ namespace Generic.LightDataTable.SqlQuerys
                 var key = string.Join("", m.ToString().Split('.').Take(m.ToString().Split('.').Length - 1));
                 var cl = m.Expression.Type;
                 var prop = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.Name == m.Member.Name);
-                var name = MethodHelper.GetPropertyName(prop);
+                var name = prop.GetPropertyName();
                 var table = cl.GetCustomAttribute<Table>()?.Name ?? cl.Name;
                 var randomTableName = JoinClauses.ContainsKey(key) ? JoinClauses[key].Item1 : RandomKey();
-                var primaryId = MethodHelper.GetPropertyName(FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.ContainAttribute<PrimaryKey>()));
+                var primaryId = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.ContainAttribute<PrimaryKey>()).GetPropertyName();
                 var columnName = string.Format("[{0}].[{1}]", randomTableName, name);
                 if (columnOnly)
                     return columnName;
@@ -395,13 +432,13 @@ namespace Generic.LightDataTable.SqlQuerys
                 var v = "";
                 if (prop != null)
                 {
-                    v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", table, randomTableName, randomTableName, primaryId, parentTable, MethodHelper.GetPropertyName(prop));
+                    v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", table, randomTableName, randomTableName, primaryId, parentTable, prop.GetPropertyName());
                 }
                 else
                 {
                     prop = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).FirstOrDefault(x => x.ContainAttribute<ForeignKey>() && x.GetCustomAttribute<ForeignKey>().Type == parentType);
                     if (prop != null)
-                        v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", table, randomTableName, randomTableName, MethodHelper.GetPropertyName(prop), parentTable, primaryId);
+                        v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", table, randomTableName, randomTableName, prop.GetPropertyName(), parentTable, primaryId);
                 }
 
                 JoinClauses.Add(key, new Tuple<string, string>(randomTableName, v));
@@ -415,7 +452,7 @@ namespace Generic.LightDataTable.SqlQuerys
                 var prop = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.Name == m.Member.Name);
                 var table = cl.GetCustomAttribute<Table>()?.Name ?? cl.Name;
                 var randomTableName = JoinClauses.ContainsKey(key) ? JoinClauses[key].Item1 : RandomKey();
-                var primaryId = MethodHelper.GetPropertyName(FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.ContainAttribute<PrimaryKey>()));
+                var primaryId = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).First(x => x.ContainAttribute<PrimaryKey>()).GetPropertyName();
                 if (JoinClauses.ContainsKey(key))
                     return m;
                 // Ok lets build inner join 
@@ -425,15 +462,14 @@ namespace Generic.LightDataTable.SqlQuerys
                 var v = "";
                 if (prop != null)
                 {
-                    _parameterValue = _parameterValue.InsertLast((" AND " + randomTableName + "." +
-                                                MethodHelper.GetPropertyName(prop) + " = " + table + "." + primaryId), ')');
-                    v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", parentTable, randomTableName, table, primaryId, randomTableName, MethodHelper.GetPropertyName(prop));
+                    v += string.Format("INNER JOIN [{0}] {1} on {2}.[{3}] = {4}.[{5}]", parentTable, randomTableName, table, primaryId, randomTableName, prop.GetPropertyName());
                 }
                 else
                 {
-                    prop = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).FirstOrDefault(x => x.ContainAttribute<ForeignKey>() && x.GetCustomAttribute<ForeignKey>().Type == parentType);
-                    if (prop != null)
-                        v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", table, randomTableName, randomTableName, MethodHelper.GetPropertyName(prop), parentTable, primaryId);
+                    throw new NotSupportedException(string.Format("CLASS STRUCTURE IS NOT SUPPORTED MEMBER{0}", m.Member.Name));
+                    //prop = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(cl).FirstOrDefault(x => x.ContainAttribute<ForeignKey>() && x.GetCustomAttribute<ForeignKey>().Type == parentType);
+                    //if (prop != null)
+                    //    v += string.Format("left join [{0}] {1} on {2}.[{3}] = {4}.[{5}]", table, randomTableName, randomTableName, MethodHelper.GetPropertyName(prop), parentTable, primaryId);
                 }
                 if (!string.IsNullOrEmpty(v))
                     JoinClauses.Add(key, new Tuple<string, string>(randomTableName, v));

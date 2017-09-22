@@ -397,6 +397,10 @@ namespace Generic.LightDataTable.Helper
                             pathLoaded.Add(id, new List<string>() { path });
                         else if (pathLoaded[id].All(x => x != path)) pathLoaded[id].Add(path);
 
+                        var propertyName = prop.Name;
+                        if (path?.Split('.').Length >= 2)
+                            propertyName = string.Join(".", path.Split('.').Reverse().Take(3).Reverse()) + "." + parentProb.Split('.').Last() + "." + propertyName;
+
                         var ttype = prop.PropertyType.GetActualType();
 
                         var key = props.FirstOrDefault(x => x.ContainAttribute<ForeignKey>() && x.GetCustomAttribute<ForeignKey>().Type == ttype);
@@ -411,7 +415,7 @@ namespace Generic.LightDataTable.Helper
                             var result = GetByColumn(keyValue.Value, column.Name, repository, prop.PropertyType);
                             prop.SetValue(item, result);
                             if (result != null && !onlyFirstLevel)
-                                LoadChildren(result, repository, onlyFirstLevel, classes, ignoreList, pathLoaded, prop.Name, id);
+                                LoadChildren(result, repository, onlyFirstLevel, classes, ignoreList, pathLoaded, propertyName, id);
                             (item as IDbEntity)?.ClearPropertChanges();
                         }
                         else
@@ -421,7 +425,7 @@ namespace Generic.LightDataTable.Helper
                             var result = GetSqlById(keyValue.Value, repository, prop.PropertyType);
                             prop.SetValue(item, result);
                             if (result != null && !onlyFirstLevel)
-                                LoadChildren(result, repository, onlyFirstLevel, classes, ignoreList, pathLoaded, prop.Name, id);
+                                LoadChildren(result, repository, onlyFirstLevel, classes, ignoreList, pathLoaded, propertyName, id);
                             (item as IDbEntity)?.ClearPropertChanges();
                         }
                     }

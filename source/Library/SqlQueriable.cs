@@ -31,6 +31,8 @@ namespace Generic.LightDataTable.Library
             base.AddRange(items);
         }
 
+        public string ParsedLinqToSql { get; private set; }
+
         public new ISqlQueriable<T> Add(T item)
         {
             if (item != null)
@@ -110,6 +112,7 @@ namespace Generic.LightDataTable.Library
                 foreach (var exp in _matches)
                     _expression.Translate(exp);
 
+                ParsedLinqToSql = _expression.Quary;
                 if (!_partExecuted)
                     this.AddRange(!string.IsNullOrEmpty(_expression.Quary) ? _repository.Where<T>(_expression) : _repository.GetAbstractAll<T>());
                 if (_childrenToLoad.Any() || _loadcholdrenOnlyFirstLevel.HasValue)
@@ -135,6 +138,8 @@ namespace Generic.LightDataTable.Library
             {
                 foreach (var exp in _matches)
                     _expression.Translate(exp);
+
+                ParsedLinqToSql = _expression.Quary;
 
                 if (!_partExecuted)
                     this.AddRange(!string.IsNullOrEmpty(_expression.Quary) ? await _repository.WhereAsync<T>(_expression) : await _repository.GetAbstractAllAsync<T>());

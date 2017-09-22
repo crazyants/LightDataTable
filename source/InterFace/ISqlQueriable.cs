@@ -13,6 +13,11 @@ namespace Generic.LightDataTable.InterFace
     public interface ISqlQueriable<T> where T : class, IDbEntity
     {
         /// <summary>
+        /// Result of LightDataTable LinqToSql
+        /// </summary>
+        string ParsedLinqToSql { get; }
+
+        /// <summary>
         /// Load All children/ sub object
         /// this will do left join
         /// </summary>
