@@ -170,7 +170,7 @@ It depends on primarykey, Id>0 to update and Id<=0 to insert.
 
 ```
 ## LinqToSql Result Example
-lets test and se how lightDataTable LinqToSql generate looks like.
+lets test and se how lightDataTable LinqToSql generator looks like.
 will do a very painful quarry and se how it gets parsed.
 ```
             using (var rep = new Repository())
