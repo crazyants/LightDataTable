@@ -141,7 +141,7 @@ It depends on primarykey, Id>0 to update and Id<=0 to insert.
                 (x.Role.Name.EndsWith("SuperAdmin") &&
                  x.UserName.Contains("alen")) ||
                  x.Address.Any(a=> a.AddressName.StartsWith("st"))
-                ).LoadChildren().Execute(); 
+                ).LoadChildren();
          foreach (User user in users.Execute())
          {
              user.UserName = "test 1";
@@ -169,5 +169,31 @@ It depends on primarykey, Id>0 to update and Id<=0 to insert.
    }
 
 ```
+## LinqToSql Result Example
+lets test and se how lightDataTable LinqToSql generator looks like.
+will do a very painful quarry and se how it gets parsed.
+```
+            using (var rep = new Repository())
+            {
+                var users = rep.Get<User>().Where(x =>
+               (x.Role.Name.EndsWith("SuperAdmin") &&
+                x.UserName.Contains("alen")) ||
+                x.Address.Any(a => (a.AddressName.StartsWith("st") || a.AddressName.Contains("mt")) && a.Id > 0)
+                ).Execute();
+                
+            }
+            // And here is the generated Sql Quarry
+            SELECT distinct Users.* FROM Users 
+            left join [Roles] vlCF on vlCF.[Id] = Users.[Role_Id]
+            left join [Address] gFWw on Users.[Id] = gFWw.[User_Id]
+            WHERE (([vlCF].[Name] like '%SuperAdmin' AND [Users].[UserName] like '%alen%')
+            OR EXISTS (SELECT 1 FROM [Address] 
+            WHERE (([Address].[AddressName] like 'st%' OR [Address].[AddressName] like '%mt%')
+            AND ([Address].[Id] > 0 AND gFWw.User_Id = Users.Id))))
+            // Se also When we did x.Address.Any the parser already know what 
+            // to look for by adding gFWw.User_Id = Users.Id
+
+```
+
 ## Issues
 This project is under developing and it's not in its final state so please report any bugs or improvement you find
