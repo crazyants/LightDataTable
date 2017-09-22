@@ -44,6 +44,13 @@ namespace Generic.LightDataTable
             });
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="items"></param>
+        /// <param name="clearIndependedData"></param>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
         public static List<T> ClearAllIdsHierarki<T>(this List<T> items, bool clearIndependedData = false) where T : class, IDbEntity
         {
             foreach (var o in items)
@@ -54,6 +61,11 @@ namespace Generic.LightDataTable
             return items;
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="clearIndependedData"></param>
         public static void ClearAllIdsHierarki(this object item, bool clearIndependedData = false)
         {
             if (item == null)
@@ -231,23 +243,6 @@ namespace Generic.LightDataTable
             var parames = new List<string>();
             if (actions != null)
                 parames = actions.ConvertExpressionToIncludeList();
-            //foreach (var action in actions)
-            //{
-            //    var member = action.Body is UnaryExpression ?
-            //        ((MemberExpression)((UnaryExpression)action.Body).Operand) :
-            //        (action.Body is MethodCallExpression ? ((MemberExpression)((MethodCallExpression)action.Body).Object) :
-            //        (MemberExpression)action.Body);
-            //    if (member == null && (action.Body as MethodCallExpression) != null)
-            //    {
-            //        var tItem = (action.Body as MethodCallExpression).Arguments.Last() as LambdaExpression;
-            //        member = tItem.Body is UnaryExpression ?
-            //            ((MemberExpression)((UnaryExpression)tItem.Body).Operand) :
-            //            (tItem.Body is MethodCallExpression ? ((MemberExpression)((MethodCallExpression)tItem.Body).Object) :
-            //                (MemberExpression)tItem.Body);
-            //    }
-            //    parames.Add(member.Member.Name);
-
-            //}
             DbSchema.LoadChildren<T>(item, repository, onlyFirstLevel, actions != null ? parames : null, ignoreList != null && ignoreList.Any() ? ignoreList : null);
         }
 
@@ -265,23 +260,7 @@ namespace Generic.LightDataTable
         {
             var parames = new List<string>();
             if (actions != null)
-                foreach (var action in actions)
-                {
-                    var member = action.Body is UnaryExpression ?
-                        ((MemberExpression)((UnaryExpression)action.Body).Operand) :
-                        (action.Body is MethodCallExpression ? ((MemberExpression)((MethodCallExpression)action.Body).Object) :
-                            (MemberExpression)action.Body);
-                    if (member == null && (action.Body as MethodCallExpression) != null)
-                    {
-                        var tItem = (action.Body as MethodCallExpression).Arguments.Last() as LambdaExpression;
-                        member = tItem.Body is UnaryExpression ?
-                            ((MemberExpression)((UnaryExpression)tItem.Body).Operand) :
-                            (tItem.Body is MethodCallExpression ? ((MemberExpression)((MethodCallExpression)tItem.Body).Object) :
-                                (MemberExpression)tItem.Body);
-                    }
-                    parames.Add(member.Member.Name);
-
-                }
+                parames = actions.ConvertExpressionToIncludeList();
             await Task.Run(() => DbSchema.LoadChildren<T>(item, repository, onlyFirstLevel, actions != null ? parames : null, ignoreList != null && ignoreList.Any() ? ignoreList : null));
             return await Task.FromResult<bool>(true);
         }

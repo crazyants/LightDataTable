@@ -188,7 +188,7 @@ namespace Generic.LightDataTable.Helper
             var sqlKey = type.GetActualType().FullName + "GetById";
             if (!CachedSql.ContainsKey(sqlKey))
             {
-                var key = MethodHelper.GetPrimaryKey(type.GetActualType()).GetPropertyName();
+                var key = type.GetActualType().GetPrimaryKey().GetPropertyName();
                 CachedSql.Add(sqlKey, Querys.Select(type.GetActualType()).Where.Column<long>(key).Equal("@ID", true).Execute());
             }
             var cmd = repository.GetSqlCommand(CachedSql[sqlKey]);
@@ -366,9 +366,12 @@ namespace Generic.LightDataTable.Helper
                 case null:
                     return null;
                 case IList _:
-                    foreach (IDbEntity tItem in (IList)item)
+                    foreach (var tItem in (IList)item)
                     {
-                        LoadChildren(tItem, repository, onlyFirstLevel, classes, ignoreList, pathLoaded, parentProb, tItem.Id);
+                        var entity = tItem as IDbEntity;
+                        if (entity == null)
+                            continue;
+                        LoadChildren(entity, repository, onlyFirstLevel, classes, ignoreList, pathLoaded, parentProb, entity.Id);
                     }
                     break;
                 default:
@@ -376,15 +379,16 @@ namespace Generic.LightDataTable.Helper
                         return item;
                     (item as IDbEntity)?.ClearPropertChanges();
                     var props = FastDeepCloner.DeepCloner.GetFastDeepClonerProperties(item.GetType());
-           
-                        id = (item as IDbEntity).Id;
+
+                    id = (item as IDbEntity).Id;
                     foreach (var prop in props.Where(x => x.PropertyType.IsClass && x.PropertyType != typeof(string) && !x.ContainAttribute<ExcludeFromAbstract>()))
                     {
-
                         var path = string.Format("{0}.{1}", parentProb ?? "", prop.Name).TrimEnd('.').TrimStart('.');
-                        if (classes != null && classes.All(x => x != path))
+                        var propCorrectPathName = path?.Split('.').Length >= 2 ? string.Join(".", path.Split('.').Reverse().Take(2).Reverse()) : path;
+
+                        if (classes != null && classes.All(x => x != propCorrectPathName))
                             continue;
-                        if (ignoreList != null && ignoreList.Any(x => x == path))
+                        if (ignoreList != null && ignoreList.Any(x => x == propCorrectPathName))
                             continue;
 
                         var propValue = prop.GetValue(item);
@@ -410,7 +414,7 @@ namespace Generic.LightDataTable.Helper
                             var primaryKey = MethodHelper.GetPrimaryKey(item as IDbEntity);
                             if (column == null || primaryKey == null)
                                 continue;
-                            var keyValue = MethodHelper.ConvertValue<long?>(primaryKey.GetValue(item));
+                            var keyValue = primaryKey.GetValue(item).ConvertValue<long?>();
                             if (!keyValue.HasValue) continue;
                             var result = GetByColumn(keyValue.Value, column.Name, repository, prop.PropertyType);
                             prop.SetValue(item, result);
