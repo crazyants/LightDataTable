@@ -190,7 +190,7 @@ will do a very painful quarry and se how it gets parsed.
             OR EXISTS (SELECT 1 FROM [Address] 
             WHERE (([Address].[AddressName] like 'st%' OR [Address].[AddressName] like '%mt%')
             AND ([Address].[Id] > 0 AND gFWw.User_Id = Users.Id))))
-            // Se also When we did x.Address.Any the parsed already know what 
+            // Se also When we did x.Address.Any the parser already know what 
             // to look for by adding gFWw.User_Id = Users.Id
 
 ```
