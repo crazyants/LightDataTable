@@ -178,7 +178,8 @@ will do a very painful quarry and se how it gets parsed.
                ISqlQueriable<User> users = rep.Get<User>().Where(x =>
                (x.Role.Name.EndsWith("SuperAdmin") &&
                 x.UserName.Contains("alen")) ||
-                x.Address.Any(a => (a.AddressName.StartsWith("st") || a.AddressName.Contains("mt")) && a.Id > 0)
+                x.Address.Any(a => (a.AddressName.StartsWith("st") || a.AddressName.Contains("mt")) && a.Id > 0).
+                .Skip(20).Take(100).Execute();  
                 );
                 
                 List<User> userList = users.Execute();
@@ -191,8 +192,8 @@ will do a very painful quarry and se how it gets parsed.
              INNER JOIN [Address] MJRhcYK on Users.[Id] = MJRhcYK.[User_Id]
              WHERE (([Address].[AddressName] like 'st%' OR [Address].[AddressName] like '%mt%') AND ([Address].[Id] > 0))))
              ORDER BY Id
-             OFFSET 0
-             ROWS FETCH NEXT 2147483647 ROWS ONLY;
+             OFFSET 20
+             ROWS FETCH NEXT 100 ROWS ONLY;
 ```
 
 ## Issues
