@@ -179,7 +179,7 @@ will do a very painful quarry and se how it gets parsed.
                (x.Role.Name.EndsWith("SuperAdmin") &&
                 x.UserName.Contains("alen")) ||
                 x.Address.Any(a => (a.AddressName.StartsWith("st") || a.AddressName.Contains("mt")) && a.Id > 0).
-                .Skip(20).Take(100).Execute();  
+                Skip(20).Take(100).Execute();  
                 );
                 
                 List<User> userList = users.Execute();
